@@ -21,9 +21,7 @@ function App() {
         <>
           <Flex
             direction="row"
-            justifyContent="space-around"
             alignItems="center"
-            alignContent="flex-end"
             wrap="nowrap"
             gap="1rem"
           >
