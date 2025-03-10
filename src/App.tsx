@@ -3,11 +3,11 @@ import {
   createStorageBrowser,
 } from "@aws-amplify/ui-react-storage/browser";
 import "@aws-amplify/ui-react-storage/styles.css";
-import './App.css';
+import "./App.css";
 
 import config from "../amplify_outputs.json";
 import { Amplify } from "aws-amplify";
-import { Authenticator, Button } from "@aws-amplify/ui-react";
+import { Authenticator, Button, Flex, Heading } from "@aws-amplify/ui-react";
 Amplify.configure(config);
 
 const { StorageBrowser } = createStorageBrowser({
@@ -19,10 +19,19 @@ function App() {
     <Authenticator>
       {({ signOut, user }) => (
         <>
-          <div className="header">
-            <h1>{`Hello ${user?.username}`}</h1>
+          <Flex
+            direction="row"
+            justifyContent="space-around"
+            alignItems="center"
+            alignContent="flex-end"
+            wrap="nowrap"
+            gap="1rem"
+          >
+            <Heading level={4}>
+              {`Hello ${user?.username}`}
+            </Heading>
             <Button onClick={signOut}>Sign out</Button>
-          </div>
+          </Flex>
           <StorageBrowser />
         </>
       )}
