@@ -1,29 +1,35 @@
+import { useEffect, useState } from "react";
+import { Button, Flex, Heading, View } from "@aws-amplify/ui-react";
 import { useMsal } from "@azure/msal-react";
 import { StorageBrowser } from "../App";
-import { Button, Flex, Heading } from "@aws-amplify/ui-react";
 
 export const Home = () => {
   const { instance, accounts } = useMsal();
-  const { name } = accounts[0];
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    if (accounts.length > 0) {
+      setUserName(accounts[0].name || accounts[0].username || "User");
+    }
+  }, [accounts]);
 
   const initializeSignOut = () => {
     instance.logoutRedirect();
   };
 
   return (
-    <>
+    <View padding="1rem">
       <Flex
         direction="row"
         justifyContent="space-between"
         alignItems="center"
-        alignContent="flex-start"
-        wrap="nowrap"
-        gap="1rem"
+        marginBottom="2rem"
       >
-        <Heading level={4}>Hello {name}!</Heading>
+        <Heading level={4}>Hello {userName}!</Heading>
         <Button onClick={initializeSignOut}>Sign out</Button>
       </Flex>
+      
       <StorageBrowser />
-    </>
+    </View>
   );
 };

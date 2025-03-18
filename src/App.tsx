@@ -14,7 +14,7 @@ import { Configuration, PublicClientApplication } from "@azure/msal-browser";
 import { Home } from "./components/Home";
 import { Login } from "./components/Login";
 import { AWSTemporaryCredentials } from "@aws-amplify/storage/internals";
-import { fetchBaseCredentials } from "./fetchCredentials";
+import { fetchBaseCredentials } from "./services/fetchBaseCredentials";
 
 // MSAL configuration
 const configuration: Configuration = {
@@ -48,22 +48,24 @@ export const { StorageBrowser } = createStorageBrowser({
   }),
 });
 
-const refreshIDToken = async (): Promise<AWSTemporaryCredentials | void> => {
-  const currentAccount = pca.getAllAccounts()[0];
-  console.log(currentAccount)
-  if (!currentAccount) {
-    console.error("No active account");
-  } else {
+const refreshIDToken = async (): Promise<AWSTemporaryCredentials | undefined> => {
+  try {
+    const currentAccount = pca.getAllAccounts()[0];
+    if (!currentAccount) {
+      console.error("No active account");
+      return undefined;
+    }
+    
     const response = await pca.acquireTokenSilent({
       account: currentAccount,
       scopes: ["User.Read"],
       forceRefresh: true,
     });
 
-    console.log(response);
-    const creds = await fetchBaseCredentials(response.idToken);
-    console.log(creds);
-    return creds;
+    return await fetchBaseCredentials(response.idToken);
+  } catch (error) {
+    console.error("Error refreshing token:", error);
+    throw error;
   }
 };
 

@@ -1,4 +1,3 @@
-/* eslint-disable no-useless-escape */
 import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
 import {
   ArnPrincipal,
@@ -23,11 +22,13 @@ export class LambdaStack extends Stack {
       "trustedTokenIssuerJwksEndpoint"
     );
 
-    // 1. Create Identity Bearer Role that provides access to AGs
-    // lambda returns creds for this role
+    /*
+     * Step 1: Create an Identity Bearer Role that grants access to Access Grants.
+     * The Lambda function will return credentials for this role.
+     */
     const accessGrantPolicy = new PolicyStatement({
       effect: Effect.ALLOW,
-      actions: ["*"],
+      actions: ["*"], // Note: You should restrict this in production
       resources: [`arn:aws:s3:${region}:${accountId}:access-grants/default`],
     });
 
@@ -38,6 +39,10 @@ export class LambdaStack extends Stack {
 
     identityBearerRole.addToPolicy(accessGrantPolicy);
 
+    /**
+     * Step 2: Create a Lambda function for token exchange.
+     * Grant STS and SSO permissions to the Lambda function.
+     */
     const lambda = new NodejsFunction(this, "TokenExchangeLambda", {
       entry: join(__dirname, "lambda", "handler.ts"),
       environment: {
@@ -58,7 +63,6 @@ export class LambdaStack extends Stack {
       })
     );
 
-    // 2. add STS and SSO permissions to lambda
     lambda.addToRolePolicy(
       new PolicyStatement({
         sid: "CreateTokenWithIAMPolicy",
@@ -77,7 +81,10 @@ export class LambdaStack extends Stack {
       })
     );
 
-    // Define the API Gateway resource
+    /**
+     * Step 3: Defines an API Gateway resource for token exchange.
+     * Creates a method that passes the idToken from the header to the Lambda function.
+     */
     const api = new apigateway.RestApi(this, "TokenExchangeApi", {
       restApiName: "Token exchange",
       description: "API that takes IDP idToken to get IAM creds",
@@ -89,7 +96,6 @@ export class LambdaStack extends Stack {
       },
     });
 
-    // Create a resource for token exchange
     const resource = api.root.addResource("exchange");
 
     // Create Method that passes the idToken from header to the Lambda function
@@ -98,7 +104,6 @@ export class LambdaStack extends Stack {
       new apigateway.LambdaIntegration(lambda, {
         proxy: false,
         passthroughBehavior: apigateway.PassthroughBehavior.WHEN_NO_TEMPLATES,
-        // Pass headers to Lambda through request template
         requestTemplates: {
           "application/json": JSON.stringify({
             idToken: "$util.escapeJavaScript($input.params('X-Idtoken'))",

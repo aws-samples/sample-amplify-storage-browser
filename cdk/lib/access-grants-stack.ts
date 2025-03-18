@@ -23,7 +23,7 @@ export class S3AccessGrantStack extends Stack {
     const bucketName = this.node.tryGetContext("bucketName");
 
     // 0. Create AG instance if you do not have one already
-    const accessGrantsInstance = new CfnAccessGrantsInstance(
+    new CfnAccessGrantsInstance(
       this,
       "AccessGrantsInstance",
       {
@@ -46,7 +46,7 @@ export class S3AccessGrantStack extends Stack {
             HttpMethods.POST,
             HttpMethods.DELETE,
           ],
-          allowedOrigins: ["*"],
+          allowedOrigins: ["*"], // Note: You should restrict this in production
           exposedHeaders: [
             "x-amz-server-side-encryption",
             "x-amz-request-id",
