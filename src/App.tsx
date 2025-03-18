@@ -1,32 +1,82 @@
 import {
-  createAmplifyAuthAdapter,
+  createManagedAuthAdapter,
   createStorageBrowser,
 } from "@aws-amplify/ui-react-storage/browser";
 import "@aws-amplify/ui-react-storage/styles.css";
-import './App.css';
+import "./App.css";
 
-import config from "../amplify_outputs.json";
-import { Amplify } from "aws-amplify";
-import { Authenticator, Button } from "@aws-amplify/ui-react";
-Amplify.configure(config);
+import {
+  AuthenticatedTemplate,
+  MsalProvider,
+  UnauthenticatedTemplate,
+} from "@azure/msal-react";
+import { Configuration, PublicClientApplication } from "@azure/msal-browser";
+import { Home } from "./components/Home";
+import { Login } from "./components/Login";
+import { AWSTemporaryCredentials } from "@aws-amplify/storage/internals";
+import { fetchBaseCredentials } from "./fetchCredentials";
 
-const { StorageBrowser } = createStorageBrowser({
-  config: createAmplifyAuthAdapter(),
+// MSAL configuration
+const configuration: Configuration = {
+  auth: {
+    clientId: import.meta.env.VITE_AZURE_CLIENT_ID as string,
+    authority:
+      `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_TENANT_ID}`,
+    redirectUri: import.meta.env.VITE_AZURE_REDIRECT_URI,
+  },
+};
+
+const pca = new PublicClientApplication(configuration);
+
+export const { StorageBrowser } = createStorageBrowser({
+  config: createManagedAuthAdapter({
+    credentialsProvider: async () => {
+      // return your credentials object
+      const creds = await refreshIDToken()
+
+      if(!creds){
+        throw new Error("No AWS credentials found")
+      }
+
+      return {
+        credentials: creds,
+      };
+    },
+    region: import.meta.env.VITE_AWS_REGION as string,
+    accountId: import.meta.env.VITE_AWS_ACCOUNT_ID as string,
+    registerAuthListener: () => {},
+  }),
 });
+
+const refreshIDToken = async (): Promise<AWSTemporaryCredentials | void> => {
+  const currentAccount = pca.getAllAccounts()[0];
+  console.log(currentAccount)
+  if (!currentAccount) {
+    console.error("No active account");
+  } else {
+    const response = await pca.acquireTokenSilent({
+      account: currentAccount,
+      scopes: ["User.Read"],
+      forceRefresh: true,
+    });
+
+    console.log(response);
+    const creds = await fetchBaseCredentials(response.idToken);
+    console.log(creds);
+    return creds;
+  }
+};
 
 function App() {
   return (
-    <Authenticator>
-      {({ signOut, user }) => (
-        <>
-          <div className="header">
-            <h1>{`Hello ${user?.username}`}</h1>
-            <Button onClick={signOut}>Sign out</Button>
-          </div>
-          <StorageBrowser />
-        </>
-      )}
-    </Authenticator>
+    <MsalProvider instance={pca}>
+      <AuthenticatedTemplate>
+        <Home />
+      </AuthenticatedTemplate>
+      <UnauthenticatedTemplate>
+        <Login />
+      </UnauthenticatedTemplate>
+    </MsalProvider>
   );
 }
 
