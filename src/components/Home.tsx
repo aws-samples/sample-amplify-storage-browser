@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button, Flex, Heading, View } from "@aws-amplify/ui-react";
 import { useMsal } from "@azure/msal-react";
-import { StorageBrowser } from "../App";
+import { StorageBrowser } from "./StorageBrowser";
 
 export const Home = () => {
   const { instance, accounts } = useMsal();
@@ -29,7 +29,7 @@ export const Home = () => {
         <Button onClick={initializeSignOut}>Sign out</Button>
       </Flex>
       
-      <StorageBrowser />
+      <StorageBrowser/>
     </View>
   );
 };
