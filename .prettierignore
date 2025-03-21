@@ -1,0 +1,14 @@
+# Ignore artifacts:
+build
+dist
+coverage
+node_modules
+
+# Ignore CDK output
+cdk.out
+
+# Ignore all HTML files:
+*.html
+
+# Ignore package-lock
+package-lock.json

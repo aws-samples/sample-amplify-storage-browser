@@ -23,13 +23,13 @@ export const Login = () => {
         <Heading level={3} textAlign="center" marginBottom="1rem">
           Sign in to access S3 buckets
         </Heading>
-        
+
         {error && (
           <Text color="red" marginBottom="1rem">
             {error.message}
           </Text>
         )}
-        
+
         <Button onClick={initializeSignIn} variation="primary" size="large" width="100%">
           Sign in with Entra
         </Button>

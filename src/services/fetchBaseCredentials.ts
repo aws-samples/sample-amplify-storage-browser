@@ -5,24 +5,22 @@ export type AWSCredentials = {
   secretAccessKey: string;
   sessionToken: string;
   expiration: Date;
-}
+};
 
 /**
  * Fetches AWS temporary credentials using the provided token
  * @param token The ID token from Azure AD
  * @returns AWS temporary credentials or undefined if an error occurs
  */
-export async function fetchBaseCredentials(
-  token: string
-): Promise<AWSCredentials> {
+export async function fetchBaseCredentials(token: string): Promise<AWSCredentials> {
   try {
-    console.debug("Fetching AWS credentials");
-    
+    console.debug('Fetching AWS credentials');
+
     const response = await fetch(APIGW_URL, {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "Content-Type": "application/json",
-        "X-Idtoken": token,
+        'Content-Type': 'application/json',
+        'X-Idtoken': token,
       },
     });
 
@@ -33,9 +31,9 @@ export async function fetchBaseCredentials(
 
     const rawData = await response.json();
     const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-    
-    console.debug("Successfully fetched AWS credentials");
-    
+
+    console.debug('Successfully fetched AWS credentials');
+
     return {
       accessKeyId: data.AccessKeyId,
       secretAccessKey: data.SecretAccessKey,
@@ -43,7 +41,7 @@ export async function fetchBaseCredentials(
       expiration: data.Expiration,
     };
   } catch (error) {
-    console.error("Failed to fetch AWS credentials", error);
+    console.error('Failed to fetch AWS credentials', error);
     throw error;
   }
 }

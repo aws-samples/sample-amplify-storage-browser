@@ -1,8 +1,5 @@
-import {
-  PublicClientApplication,
-  AccountInfo,
-} from "@azure/msal-browser";
-import { AWSCredentials, fetchBaseCredentials } from "./fetchBaseCredentials";
+import { PublicClientApplication, AccountInfo } from '@azure/msal-browser';
+import { AWSCredentials, fetchBaseCredentials } from './fetchBaseCredentials';
 
 export type AuthEventListener = () => void;
 
@@ -29,23 +26,23 @@ export class AuthService {
     try {
       const currentAccount = this.getCurrentAccount();
       if (!currentAccount) {
-        throw new Error("No active account");
+        throw new Error('No active account');
       }
 
       const response = await this.pcaInstance.acquireTokenSilent({
         account: currentAccount,
-        scopes: ["User.Read"],
+        scopes: ['User.Read'],
         forceRefresh: true,
       });
 
       const credentials = await fetchBaseCredentials(response.idToken);
       if (!credentials) {
-        throw new Error("Failed to obtain AWS credentials");
+        throw new Error('Failed to obtain AWS credentials');
       }
 
       return credentials;
     } catch (error) {
-      console.error("Error getting AWS credentials:", error);
+      console.error('Error getting AWS credentials:', error);
       throw error;
     }
   }
@@ -54,8 +51,8 @@ export class AuthService {
    * Registers authentication event listeners
    */
   registerAuthListener = (onStateChange: () => void) => {
-        this.onStateChange = onStateChange;
-      };
+    this.onStateChange = onStateChange;
+  };
 
   /**
    * Initiates the login process
@@ -63,10 +60,10 @@ export class AuthService {
   async login(): Promise<void> {
     try {
       await this.pcaInstance.loginPopup({
-        scopes: ["User.Read"],
+        scopes: ['User.Read'],
       });
     } catch (error) {
-      console.error("Login failed:", error);
+      console.error('Login failed:', error);
       throw error;
     }
   }
@@ -81,10 +78,10 @@ export class AuthService {
         await this.pcaInstance.logoutPopup({
           account,
         });
-        this.onStateChange()
+        this.onStateChange();
       }
     } catch (error) {
-      console.error("Logout failed:", error);
+      console.error('Logout failed:', error);
       throw error;
     }
   }

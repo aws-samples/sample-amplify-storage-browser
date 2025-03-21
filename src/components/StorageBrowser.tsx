@@ -1,13 +1,13 @@
 import {
   createManagedAuthAdapter,
   createStorageBrowser,
-} from "@aws-amplify/ui-react-storage/browser";
-import { authService } from "../MsalConfiguration";
+} from '@aws-amplify/ui-react-storage/browser';
+import { authService } from '../MsalConfiguration';
 
 /**
  * Creates a Storage Browser component that uses Azure AD (Entra ID) authentication
  * and AWS IAM Access Grants for authorization.
- * 
+ *
  * The component uses the EntraAuthService to:
  * 1. Manage authentication state with Azure AD
  * 2. Exchange Azure AD tokens for temporary AWS credentials
@@ -18,7 +18,7 @@ export const { StorageBrowser } = createStorageBrowser({
     credentialsProvider: async () => {
       // Get AWS credentials using our auth service
       const credentials = await authService.getAwsCredentials();
-      
+
       return {
         credentials,
       };
