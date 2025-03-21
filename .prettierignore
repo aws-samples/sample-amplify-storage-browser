@@ -1,0 +1,17 @@
+# Build outputs
+dist/
+build/
+coverage/
+
+# Node modules
+node_modules/
+
+# Amplify generated files
+.amplify/
+amplify_outputs.json
+
+# Package files
+package-lock.json
+
+# Ignore all HTML files
+*.html
