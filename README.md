@@ -1,6 +1,6 @@
 # Amplify Storage Browser with Azure AD Authentication
 
-This project demonstrates how to build a secure web application that allows users to browse and manage S3 buckets using Storage Browser. This uses Azure AD for authentication and AWS IAM Access Grants for authorization.
+This project demonstrates how to build a secure web application that allows users to browse and manage S3 buckets using Storage Browser with Azure AD for authentication and AWS IAM Access Grants for authorization.
 
 ## Overview
 
@@ -27,8 +27,10 @@ The application consists of two main components:
 
 ### 1. Clone the Repository
 
+This command clones the `sample/managed-auth-entra` branch from the repository, which contains the sample implementation for authentication using Microsoft Entra ID.
+
 ```bash
-git clone https://github.com/yourusername/sample-amplify-storage-browser.git
+git clone -b sample/managed-auth-entra https://github.com/yourusername/sample-amplify-storage-browser.git
 cd sample-amplify-storage-browser
 ```
 
@@ -52,9 +54,9 @@ Create a `.env` file in the root directory with the following variables:
 VITE_AZURE_CLIENT_ID=your-azure-client-id
 VITE_AZURE_TENANT_ID=your-azure-tenant-id
 VITE_AZURE_REDIRECT_URI=http://localhost:5173
-VITE_AWS_REGION=us-east-1
+VITE_AWS_REGION=your-aws-region
 VITE_AWS_ACCOUNT_ID=your-aws-account-id
-VITE_APIGW_URL=https://your-api-gateway-url/exchange
+VITE_APIGW_URL=https://<your-api-gateway-url>/exchange
 ```
 
 ### 4. Deploy the CDK Infrastructure

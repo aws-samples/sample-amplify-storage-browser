@@ -38,6 +38,7 @@ export class S3AccessGrantStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       cors: [
         {
+          id: "S3CORSRuleId1",
           allowedHeaders: ["*"],
           allowedMethods: [
             HttpMethods.GET,
@@ -47,11 +48,18 @@ export class S3AccessGrantStack extends Stack {
             HttpMethods.DELETE,
           ],
           allowedOrigins: ["*"], // Note: You should restrict this in production
-          exposedHeaders: [
-            "x-amz-server-side-encryption",
+          exposedHeaders: [ // source of truth: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3config-storagebrowser.html
+            "last-modified",
+            "content-type",
+            "content-length",
+            "etag",
+            "x-amz-version-id",
             "x-amz-request-id",
             "x-amz-id-2",
-            "ETag",
+            "x-amz-cf-id",
+            "x-amz-storage-class",
+            "date",
+            "access-control-expose-headers"
           ],
           maxAge: 3000,
         },

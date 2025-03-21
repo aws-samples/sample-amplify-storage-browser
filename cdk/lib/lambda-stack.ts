@@ -125,6 +125,10 @@ export class LambdaStack extends Stack {
       }
     );
 
+    api.addUsagePlan("Usage Plan", {
+      throttle: { rateLimit: 10, burstLimit: 2 },
+    });
+
     // Output the API Gateway URL
     new CfnOutput(this, "ApigwUrl", {
       value: api.urlForPath("/exchange"),

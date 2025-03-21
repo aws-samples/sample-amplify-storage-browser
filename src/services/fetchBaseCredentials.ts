@@ -14,7 +14,7 @@ export type AWSCredentials = {
  */
 export async function fetchBaseCredentials(
   token: string
-): Promise<AWSCredentials | undefined> {
+): Promise<AWSCredentials> {
   try {
     console.debug("Fetching AWS credentials");
     
