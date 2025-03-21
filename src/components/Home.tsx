@@ -1,20 +1,20 @@
 import { useEffect, useState } from "react";
 import { Button, Flex, Heading, View } from "@aws-amplify/ui-react";
-import { useMsal } from "@azure/msal-react";
 import { StorageBrowser } from "./StorageBrowser";
+import { authService } from "../MsalConfiguration";
 
 export const Home = () => {
-  const { instance, accounts } = useMsal();
   const [userName, setUserName] = useState("");
 
   useEffect(() => {
-    if (accounts.length > 0) {
-      setUserName(accounts[0].name || accounts[0].username || "User");
+    const currentAccount = authService.getCurrentAccount();
+    if (currentAccount) {
+      setUserName(currentAccount.name || currentAccount.username || "User");
     }
-  }, [accounts]);
+  }, []);
 
-  const initializeSignOut = () => {
-    instance.logoutRedirect();
+  const initializeSignOut = async () => {
+    await authService.logout();
   };
 
   return (

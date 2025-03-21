@@ -1,4 +1,5 @@
 import { Configuration, PublicClientApplication } from "@azure/msal-browser";
+import { AuthService } from "./services/AuthService";
 
 // MSAL configuration
 const configuration: Configuration = {
@@ -12,3 +13,4 @@ const configuration: Configuration = {
 };
 
 export const pcaInstance = new PublicClientApplication(configuration);
+export const authService = new AuthService(pcaInstance);

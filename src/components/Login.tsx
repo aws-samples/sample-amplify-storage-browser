@@ -1,18 +1,19 @@
 import { Button, Card, Flex, Heading, Text } from '@aws-amplify/ui-react';
-import { useMsal } from '@azure/msal-react';
 import { useState } from 'react';
+import { authService } from '../MsalConfiguration';
 
 export const Login = () => {
-  const { instance } = useMsal();
   const [error, setError] = useState<Error | null>(null);
 
-  const initializeSignIn = () => {
+  const initializeSignIn = async () => {
     try {
-      instance.loginRedirect().catch(err => {
-        setError(new Error(err.message || 'Failed to sign in'));
-      });
+      await authService.login();
     } catch (err) {
-      setError(new Error('An unexpected error occurred during sign in'));
+      if (err instanceof Error) {
+        setError(err);
+      } else {
+        setError(new Error('An unexpected error occurred during sign in'));
+      }
     }
   };
 
