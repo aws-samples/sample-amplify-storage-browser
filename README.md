@@ -8,7 +8,8 @@ This template equips you with a foundational React application integrated with A
 
 ## Features
 
-- **Authentication**: Setup with Amazon Cognito for secure user authentication with email login
+- **Authentication**: Setup with Amazon Cognito for secure user authentication with email login.   
+   - More info on how to setup and configuration option: https://docs.amplify.aws/react/build-a-backend/auth/set-up-auth/
 - **Storage**: Configured with multiple S3 buckets and granular access controls. The sample is configured with
   - Default storage bucket with public, admin, and private access paths
   - Secondary storage bucket with separate backup paths.
@@ -29,20 +30,6 @@ This template equips you with a foundational React application integrated with A
 │   └── main.tsx              # Application entry point
 └── package.json              # Project dependencies
 ```
-
-## Storage Configuration
-
-The project includes two S3 buckets with different access patterns:
-
-1. **Default Storage Bucket**:
-   - `public/*`: Read/write for guests, full access for authenticated users
-   - `admin/*`: Full access for admin group, read-only for other authenticated users
-   - `private/{entity_id}/*`: User-specific private storage
-
-2. **Secondary Storage Bucket**:
-   - `backup_public/*`: Read/write for guests, full access for authenticated users
-   - `backup_admin/*`: Full access for admin group, read-only for other authenticated users
-   - `backup_private/{entity_id}/*`: User-specific private storage
 
 ## Getting Started
 
