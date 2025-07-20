@@ -1,78 +1,97 @@
-# Amplify Storage Browser React+Vite Starter Template
+# AdvisorAI Onboarding Data Uploader
 
-This repository provides a starter template for creating applications with Storage Browser for S3 using React+Vite and AWS Amplify, emphasizing easy setup for authentication and S3 capabilities.
+A secure, group-based file management system for onboarding data, built with AWS Amplify and React. Integrated as a second Amplify app within the AdvisorAI aa-stack CloudFormation deployment.
 
-## Overview
+## 🎯 **Features**
 
-This template equips you with a foundational React application integrated with AWS Amplify Auth and Storage Browser, streamlined for scalability and performance. It is ideal for developers looking to jumpstart their Storage Browser project with pre-configured AWS services like Cognito and S3.
+- **🔐 Group-Based Access Control** - Two user groups with different access levels
+- **📁 Organized Folder Structure** - Separate areas for different types of onboarding data
+- **☁️ Cloud Storage** - Powered by AWS S3 with Amplify Storage
+- **👥 Multi-Tenant Support** - Integrated with aa-stack tenant architecture
+- **🚀 Modern UI** - Built with React and Amplify UI components
 
-## Features
+## 📁 **Folder Structure & Permissions**
 
-- **Authentication**: Setup with Amazon Cognito for secure user authentication with email login.   
-   - More info on how to setup and configuration option: https://docs.amplify.aws/react/build-a-backend/auth/set-up-auth/
-- **Storage**: Configured with multiple S3 buckets and granular access controls. The sample is configured with
-  - Default storage bucket with public, admin, and private access paths
-  - Secondary storage bucket with separate backup paths.
-  - More info on how to setup : https://docs.amplify.aws/react/build-a-backend/storage/set-up-storage/#building-your-storage-backend
-- **UI Components**: Pre-integrated Amplify UI React components including:
-  - Authenticator for sign-in/sign-up flows
-      - More info : https://ui.docs.amplify.aws/react/connected-components/authenticator
-  - Storage Browser for S3 file management.
-      - More info : https://ui.docs.amplify.aws/react/connected-components/storage/storage-browser
+### User Groups
+- **`onboarding-data-admins`** - AdvisorAI staff with full access
+- **`onboarding-data-users`** - Institution admins with limited access
 
-## Project Structure
+### S3 Folder Access
+| Folder | `onboarding-data-admins` | `onboarding-data-users` |
+|--------|--------------------------|-------------------------|
+| `data/` | ✅ Full access | ✅ Full access |
+| `admin/` | ✅ Full access | ❌ No access |
+| `archive/` | ✅ Full access | ❌ No access |
 
+## 🏗️ **Architecture**
+
+This application is deployed as a **second Amplify app** within the existing aa-stack CloudFormation template, providing:
+
+- Shared Cognito User Pool and Identity Pool
+- Unified deployment and management
+- Automatic environment variable injection
+- Consistent security and access controls
+
+## 🚀 **Deployment**
+
+See [DEPLOYMENT-README.md](./DEPLOYMENT-README.md) for complete integration instructions with the aa-stack CloudFormation template.
+
+## 💻 **Local Development**
+
+```bash
+# Install dependencies
+npm install
+
+# Set up environment variables (get values from aa-stack outputs)
+export COGNITO_USER_POOL_ID=us-west-2_xxxxxxxxx
+export COGNITO_USER_POOL_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
+export COGNITO_IDENTITY_POOL_ID=us-west-2:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+export COGNITO_AUTH_ROLE_ARN=arn:aws:iam::123456789012:role/...
+export COGNITO_UNAUTH_ROLE_ARN=arn:aws:iam::123456789012:role/...
+
+# Start development server
+npm run dev
 ```
-├── amplify/                  # Amplify Gen 2 backend configuration
-│   ├── auth/                 # Authentication configuration
-│   ├── storage/              # S3 storage configuration
-│   └── backend.ts            # Main backend definition
-├── src/
-│   ├── App.tsx               # Main application component
-│   └── main.tsx              # Application entry point
-└── package.json              # Project dependencies
-```
 
-## Getting Started
+## 🔧 **Technology Stack**
 
-### Installation
+- **Frontend**: React 19 + TypeScript + Vite
+- **Authentication**: AWS Cognito (User Pool + Identity Pool)
+- **Storage**: AWS S3 via Amplify Storage
+- **UI Components**: Amplify UI React + Storage Browser
+- **Deployment**: AWS Amplify + CloudFormation
 
-1. Clone this repository
-   ```bash
-   git clone <repository-url>
-   cd sample-amplify-storage-browser
-   ```
+## 📋 **Prerequisites**
 
-2. Install dependencies
-   ```bash
-   npm install
-   ```
+- Existing aa-stack CloudFormation deployment
+- AWS Cognito User Pool with appropriate groups
+- GitHub access token for Amplify deployments
 
-3. Initialize and deploy the Amplify backend
-   ```bash
-   npx ampx sandbox
-   ```
+## 🔒 **Security Features**
 
-4. Start the development server
-   ```bash
-   npm run dev
-   ```
+- **Group-based access control** - Only authorized users can access files
+- **No public access** - All access requires authentication
+- **IAM role segregation** - Different permissions for different user groups
+- **Secure authentication** - OAuth 2.0 flows with Cognito
 
-## Deploying to AWS
+## 📖 **Usage**
 
-For detailed instructions on deploying your application, refer to the [deployment section](https://docs.amplify.aws/react/start/quickstart/#deploy-a-fullstack-app-to-aws) of our documentation.
+1. **Login** - Users authenticate with Cognito credentials
+2. **Browse** - Navigate available folders based on group membership
+3. **Upload** - Drag and drop files or use upload button
+4. **Download** - Click to download files
+5. **Delete** - Remove files as needed (with appropriate permissions)
 
-## Contributing
+The interface automatically shows only the folders and files the user has access to based on their group membership.
 
-See [CONTRIBUTING](CONTRIBUTING.md) for more information.
+## 🎉 **What Users See**
 
-## Security
+- **Admins** (`onboarding-data-admins`) see all folders: `data/`, `admin/`, `archive/`
+- **Users** (`onboarding-data-users`) see only: `data/`
+- **Non-group members** get access denied errors
 
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+This ensures proper data segregation while maintaining a smooth user experience for authorized users.
 
-## License
+---
 
-This library is licensed under the MIT-0 License. See the LICENSE file.
-
-
-_These sample applications are provided as a reference to help get started easily and are not supported by AWS Support._
+For detailed deployment instructions, see [DEPLOYMENT-README.md](./DEPLOYMENT-README.md).
