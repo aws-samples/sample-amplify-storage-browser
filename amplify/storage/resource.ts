@@ -1,36 +1,22 @@
 import { defineStorage } from '@aws-amplify/backend';
 
+// Single storage bucket optimized for shared onboarding data workspace
 export const storage = defineStorage({
-  name: 'myStorageBucket',
+  name: 'onboardingDataUploader',
   isDefault: true,
    access: (allow) => ({
-    'public/*': [
-        allow.guest.to(['read', 'write']),
-        allow.authenticated.to(['read', 'write', 'delete']),
+    // Shared workspace - all authenticated users can upload, view, and manage files
+    'data/*': [
+        allow.groups(['onboarding-data-admins']).to(['read', 'write', 'delete']),
+        allow.groups(['onboarding-data-users']).to(['read', 'write', 'delete'])
     ],
+    // Admin/support area - for internal team management
     'admin/*': [
-        allow.groups(['admin']).to(['read', 'write', 'delete']),
-        allow.authenticated.to(['read'])
+        allow.groups(['onboarding-data-admins']).to(['read', 'write', 'delete'])
     ],
-    'private/{entity_id}/*': [
-        allow.entity('identity').to(['read', 'write', 'delete'])
-    ]
-   })
-});
-
-export const secondaryStorage = defineStorage({
-  name: 'mySecondaryStorageBucket',
-   access: (allow) => ({
-    'backup_public/*': [
-        allow.guest.to(['read', 'write']),
-        allow.authenticated.to(['read', 'write', 'delete']),
-    ],
-    'backup_admin/*': [
-        allow.groups(['admin']).to(['read', 'write', 'delete']),
-        allow.authenticated.to(['read'])
-    ],
-    'backup_private/{entity_id}/*': [
-        allow.entity('identity').to(['read', 'write', 'delete'])
+    // Archive area - for completed onboarding data
+    'archive/*': [
+        allow.groups(['onboarding-data-admins']).to(['read', 'write', 'delete'])
     ]
    })
 });
