@@ -22,7 +22,7 @@ const backend = defineBackend({
  *
  * Note: Ensure the bucket exists before deploying this code, as it only sets up IAM policies and does not create the S3 bucket.
  */
-const customBucketName = "my-existing-bucket";
+const customBucketName = "s3-image-files-for-comfy";
 
 backend.addOutput({
   version: "1.3",
@@ -36,12 +36,12 @@ backend.addOutput({
         aws_region: "us-east-1",
         //@ts-expect-error amplify backend type issue https://github.com/aws-amplify/amplify-backend/issues/2569
         paths: {
-          "public/*": {
+          "comfy-output/*": {
             guest: ["get", "list"],
             authenticated: ["get", "list", "write", "delete"],
           },
           "admin/*": {
-            groupsadmin: ["get", "list", "write", "delete"],
+            guest: ["get", "list"],
             authenticated: ["get", "list", "write", "delete"],
           },
         },
@@ -59,7 +59,7 @@ const unauthPolicy = new Policy(backend.stack, "customBucketUnauthPolicy", {
     new PolicyStatement({
       effect: Effect.ALLOW,
       actions: ["s3:GetObject"],
-      resources: [`arn:aws:s3:::${customBucketName}/public/*`],
+      resources: [`arn:aws:s3:::${customBucketName}/comfy-output/*`],
     }),
     new PolicyStatement({
       effect: Effect.ALLOW,
@@ -67,7 +67,7 @@ const unauthPolicy = new Policy(backend.stack, "customBucketUnauthPolicy", {
       resources: [`arn:aws:s3:::${customBucketName}`],
       conditions: {
         StringLike: {
-          "s3:prefix": ["public/*", "public/"],
+          "s3:prefix": ["comfy-output/*", "comfy-output/"],
         },
       },
     }),
@@ -84,7 +84,7 @@ const authPolicy = new Policy(backend.stack, "customBucketAuthPolicy", {
       effect: Effect.ALLOW,
       actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
       resources: [
-        `arn:aws:s3:::${customBucketName}/public/*`,
+        `arn:aws:s3:::${customBucketName}/comfy-output/*`,
         `arn:aws:s3:::${customBucketName}/admin/*`,
       ],
     }),
@@ -97,7 +97,7 @@ const authPolicy = new Policy(backend.stack, "customBucketAuthPolicy", {
       ],
       conditions: {
         StringLike: {
-          "s3:prefix": ["public/*", "public/", "admin/*", "admin/"],
+          "s3:prefix": ["comfy-output/*", "comfy-output/", "admin/*", "admin/"],
         },
       },
     }),

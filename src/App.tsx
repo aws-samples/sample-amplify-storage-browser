@@ -16,7 +16,7 @@ const { StorageBrowser } = createStorageBrowser({
 
 function App() {
   return (
-    <Authenticator>
+    <Authenticator hideSignUp>
       {({ signOut, user }) => (
         <>
           <Flex direction="row" alignItems="center" wrap="nowrap" gap="1rem">
