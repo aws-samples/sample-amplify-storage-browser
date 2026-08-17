@@ -6,7 +6,9 @@ import {
   PhysicalResourceId,
 } from 'aws-cdk-lib/custom-resources';
 import { Effect, FederatedPrincipal, Policy, PolicyStatement, Role } from 'aws-cdk-lib/aws-iam';
+import { Key } from 'aws-cdk-lib/aws-kms';
 import { CfnFunction } from 'aws-cdk-lib/aws-lambda';
+import { CfnBucket } from 'aws-cdk-lib/aws-s3';
 import { IConstruct } from 'constructs';
 import { auth } from './auth/resource';
 import { secondaryStorage, storage } from './storage/resource';
@@ -37,7 +39,26 @@ class GeneratedNodeRuntime implements IAspect {
 Aspects.of(backend.stack).add(new GeneratedNodeRuntime());
 
 const expedientesBucket = backend.secondaryStorage.resources.bucket;
+const expedientesKmsKeyArn = 'arn:aws:kms:us-east-1:953290282809:key/e0b3229c-c603-4e8f-9157-8abbed28943f';
+const expedientesCfnBucket = expedientesBucket.node.defaultChild as CfnBucket;
+
+expedientesCfnBucket.bucketEncryption = {
+  serverSideEncryptionConfiguration: [
+    {
+      serverSideEncryptionByDefault: {
+        sseAlgorithm: 'aws:kms',
+        kmsMasterKeyId: expedientesKmsKeyArn,
+      },
+    },
+  ],
+};
+
 const expedientesAccessStack = backend.createStack('expedientesAccess');
+const expedientesKmsKey = Key.fromKeyArn(
+  expedientesAccessStack,
+  'ExpedientesKmsKey',
+  expedientesKmsKeyArn
+);
 const gexpedientesGroupName = 'gexpedientes';
 const privateIdentityPrefix = 'privado/${cognito-identity.amazonaws.com:sub}';
 
@@ -59,6 +80,8 @@ const gexpedientesRole = new Role(expedientesAccessStack, 'GExpedientesGroupRole
     'sts:AssumeRoleWithWebIdentity'
   ),
 });
+
+expedientesKmsKey.grantEncryptDecrypt(gexpedientesRole);
 
 const linkGExpedientesGroupRoleCall = {
   service: 'cognito-identity-provider',
