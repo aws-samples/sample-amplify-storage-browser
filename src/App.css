@@ -340,6 +340,13 @@ body::before {
   overflow-x: auto;
 }
 
+.storage-table-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  fill: currentColor;
+}
+
 .amplify-authenticator {
   min-height: 100vh;
   background:

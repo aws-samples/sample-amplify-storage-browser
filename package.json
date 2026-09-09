@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "tsx --test tests/storageBrowserPresentation.test.ts",
+    "test": "tsx --test tests/storageBrowserPresentation.test.ts tests/storageBrowserComponents.test.tsx",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\""
   },
   "dependencies": {
