@@ -6,21 +6,25 @@ export const storage = defineStorage({
   access: (allow) => ({
     'doctrina/*': [
       allow.authenticated.to(['read']),
+      allow.groups(['uploaders']).to(['list', 'write']),
       allow.groups(['admin']).to(['read', 'write']),
       allow.groups(['eliminadores']).to(['delete']),
     ],
     'medios/*': [
       allow.authenticated.to(['read']),
+      allow.groups(['uploaders']).to(['list', 'write']),
       allow.groups(['admin']).to(['read', 'write']),
       allow.groups(['eliminadores']).to(['delete']),
     ],
     'jurisprudencia/*': [
       allow.authenticated.to(['read']),
+      allow.groups(['uploaders']).to(['list', 'write']),
       allow.groups(['admin']).to(['read', 'write']),
       allow.groups(['eliminadores']).to(['delete']),
     ],
     'legislacion/*': [
       allow.authenticated.to(['read']),
+      allow.groups(['uploaders']).to(['list', 'write']),
       allow.groups(['admin']).to(['read', 'write']),
       allow.groups(['eliminadores']).to(['delete']),
     ],

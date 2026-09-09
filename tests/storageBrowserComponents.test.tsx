@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { StorageDataTable, StoragePresentationProvider } from '../src/storageBrowserComponents';
+import {
+  StorageActionsList,
+  StorageDataTable,
+  StoragePresentationProvider,
+} from '../src/storageBrowserComponents';
+import { filterStorageActionsForUploader } from '../src/storageBrowserActions';
 import { createBucketLabelMap } from '../src/storageBrowserPresentation';
 
 const PHYSICAL_BUCKET = 'frauden-expedientes-physical-bucket-456';
@@ -108,4 +113,84 @@ test('renderiza también las tablas de detalle y acciones', () => {
   assert.match(html, /<table/);
   assert.match(html, /contrato\.pdf/);
   assert.match(html, /12 KB/);
+});
+
+test('para uploaders conserva únicamente la acción Subir', () => {
+  const actions = [
+    { actionType: 'copy', label: 'Copiar' },
+    { actionType: 'delete', label: 'Eliminar' },
+    { actionType: 'createFolder', label: 'Crear carpeta' },
+    { actionType: 'upload', label: 'Subir' },
+  ];
+  const uploaderHtml = renderToStaticMarkup(
+    <StoragePresentationProvider bucketLabels={new Map()} isUploader userLabel="Usuario">
+      <StorageActionsList items={actions} />
+    </StoragePresentationProvider>
+  );
+  const regularHtml = renderToStaticMarkup(
+    <StoragePresentationProvider bucketLabels={new Map()} userLabel="Usuario">
+      <StorageActionsList items={actions} />
+    </StoragePresentationProvider>
+  );
+
+  assert.deepEqual(
+    filterStorageActionsForUploader(actions, true).map(({ label }) => label),
+    ['Subir']
+  );
+  assert.deepEqual(
+    filterStorageActionsForUploader(actions, false).map(({ label }) => label),
+    ['Copiar', 'Eliminar', 'Crear carpeta', 'Subir']
+  );
+  assert.match(uploaderHtml, /aria-label="Menu Toggle"/);
+  assert.match(regularHtml, /aria-label="Menu Toggle"/);
+});
+
+test('oculta selección y descarga en el detalle uploader sin cambiar otros perfiles', () => {
+  const headers = [
+    {
+      key: 'checkbox',
+      type: 'checkbox' as const,
+      content: { id: 'select-all', label: 'Seleccionar todos' },
+    },
+    { key: 'name', type: 'text' as const, content: { text: 'Nombre' } },
+    { key: 'download', type: 'text' as const, content: { text: 'Descargar' } },
+  ];
+  const rows = [
+    {
+      key: 'file-1',
+      content: [
+        {
+          key: 'checkbox-file-1',
+          type: 'checkbox' as const,
+          content: { id: 'select-file-1', label: 'Seleccionar archivo' },
+        },
+        {
+          key: 'name-file-1',
+          type: 'text' as const,
+          content: { text: 'contrato.pdf' },
+        },
+        {
+          key: 'download-file-1',
+          type: 'button' as const,
+          content: { ariaLabel: 'Descargar contrato.pdf', icon: 'download' as const },
+        },
+      ],
+    },
+  ];
+  const uploaderHtml = renderToStaticMarkup(
+    <StoragePresentationProvider bucketLabels={new Map()} isUploader userLabel="Usuario">
+      <StorageDataTable headers={headers} rows={rows} />
+    </StoragePresentationProvider>
+  );
+  const regularHtml = renderToStaticMarkup(
+    <StoragePresentationProvider bucketLabels={new Map()} userLabel="Usuario">
+      <StorageDataTable headers={headers} rows={rows} />
+    </StoragePresentationProvider>
+  );
+
+  assert.match(uploaderHtml, /contrato\.pdf/);
+  assert.doesNotMatch(uploaderHtml, /type="checkbox"/);
+  assert.doesNotMatch(uploaderHtml, /Descargar contrato\.pdf/);
+  assert.match(regularHtml, /type="checkbox"/);
+  assert.match(regularHtml, /Descargar contrato\.pdf/);
 });

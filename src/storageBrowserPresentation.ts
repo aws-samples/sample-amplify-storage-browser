@@ -94,6 +94,24 @@ export function resolveUserDisplayName(attributes?: { email?: string; name?: str
   return attributes?.name?.trim() || attributes?.email?.trim() || USER_FALLBACK_LABEL;
 }
 
+export function getPermissionDisplayName(
+  permissions: readonly string[],
+  isUploader = false
+): string {
+  if (isUploader && permissions.includes('list') && permissions.includes('write')) {
+    return 'Listar/Subir';
+  }
+
+  const canRead = permissions.includes('get') || permissions.includes('list');
+  const canWrite = permissions.includes('write') || permissions.includes('delete');
+
+  if (canRead && canWrite) return 'Lectura/Escritura';
+  if (canRead) return 'Lectura';
+  if (canWrite) return 'Escritura';
+
+  return permissions.join('/');
+}
+
 export function formatPrivatePath(path: string, userLabel: string): string | undefined {
   const parts = getPathParts(path);
 

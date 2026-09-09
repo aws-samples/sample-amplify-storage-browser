@@ -6,15 +6,19 @@ import {
 import '@aws-amplify/ui-react/styles.css';
 import '@aws-amplify/ui-react-storage/styles.css';
 import './App.css';
-import { useEffect, useMemo, useState, type ComponentProps } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ComponentProps } from 'react';
 import config from '../amplify_outputs.json';
 import { Amplify } from 'aws-amplify';
 import { fetchAuthSession, fetchUserAttributes } from 'aws-amplify/auth';
 import { I18n } from 'aws-amplify/utils';
-import { Authenticator, Button, translations } from '@aws-amplify/ui-react';
+import { Authenticator, Button, translations, View } from '@aws-amplify/ui-react';
 import fraudenLogo from './assets/frauden-logo.svg';
+import { trackApplicationOperation } from './activityReporter';
 import { listLocationItemsPage } from './listLocationItemsPage';
+import { useSessionActivity, useTrackApplicationProcessing } from './sessionActivityContext';
+import { SessionActivityProvider } from './sessionActivityReact';
 import {
+  StorageActionsList,
   StorageActionDestination,
   StorageDataTable,
   StorageNavigation,
@@ -25,10 +29,13 @@ import {
   createBucketLabelMap,
   createListAllLocationItemsHandler,
   formatLocationTitle,
+  getPermissionDisplayName,
   resolveUserDisplayName,
   USER_FALLBACK_LABEL,
   type AmplifyBucketConfig,
 } from './storageBrowserPresentation';
+import { trackedDownloadHandler } from './trackedDownloadHandler';
+import { filterUploaderLocations, resolveUserAccess, type UserAccess } from './userAccess';
 
 Amplify.configure(config);
 I18n.putVocabularies(translations);
@@ -37,17 +44,54 @@ I18n.setLanguage('es');
 const bucketLabels = createBucketLabelMap(
   Amplify.getConfig().Storage?.S3?.buckets as AmplifyBucketConfig | undefined
 );
+const primaryBucketName = Amplify.getConfig().Storage?.S3?.bucket;
+const amplifyAuthAdapter = createAmplifyAuthAdapter();
+const listAllLocationItems = createListAllLocationItemsHandler(listLocationItemsPage);
+let locationAdapterSessionId: string | undefined;
+let locationAdapter = amplifyAuthAdapter;
 
-const { StorageBrowser } = createStorageBrowser({
-  config: createAmplifyAuthAdapter(),
+const trackedAuthAdapter = {
+  ...amplifyAuthAdapter,
+  listLocations: (input: Parameters<typeof amplifyAuthAdapter.listLocations>[0]) =>
+    trackApplicationOperation(async () => {
+      const session = await fetchAuthSession();
+      const payload = session.tokens?.accessToken?.payload;
+
+      if (!payload) {
+        throw new Error('No se pudo verificar el acceso a las ubicaciones de almacenamiento.');
+      }
+
+      const access = resolveUserAccess(payload as Record<string, unknown>);
+      if (locationAdapterSessionId !== access.sessionId) {
+        locationAdapterSessionId = access.sessionId;
+        locationAdapter = createAmplifyAuthAdapter();
+      }
+      const result = await locationAdapter.listLocations(input);
+
+      if (!access.isUploader) return result;
+      if (!primaryBucketName) {
+        throw new Error('No se encontró la configuración del almacenamiento principal.');
+      }
+
+      return {
+        ...result,
+        items: filterUploaderLocations(result.items, primaryBucketName),
+      };
+    }),
+};
+
+const { StorageBrowser, useView } = createStorageBrowser({
+  config: trackedAuthAdapter,
   actions: {
     default: {
-      listLocationItems: createListAllLocationItemsHandler(listLocationItemsPage),
+      download: trackedDownloadHandler,
+      listLocationItems: (input) => trackApplicationOperation(() => listAllLocationItems(input)),
     },
   },
   components: {
     ...componentsDefault,
     ActionDestination: StorageActionDestination,
+    ActionsList: StorageActionsList,
     DataTable: StorageDataTable,
     Navigation: StorageNavigation,
     Pagination: StoragePagination,
@@ -72,6 +116,140 @@ function AllItemsLocationDetailView(props: LocationDetailViewProps) {
       {...props}
       initialValues={{ pageSize: Number.MAX_SAFE_INTEGER }}
     />
+  );
+}
+
+function TrackedUploadView() {
+  const state = useView('Upload');
+  useTrackApplicationProcessing(state.isProcessing);
+
+  return (
+    <View className="amplify-storage-browser">
+      <StorageBrowser.UploadView.Provider {...state}>
+        <StorageBrowser.UploadView.Exit />
+        <StorageBrowser.UploadView.Title />
+        <View className="amplify-storage-browser__controls">
+          <StorageBrowser.UploadView.OverwriteToggle />
+          <View className="amplify-storage-browser__buttons">
+            <StorageBrowser.UploadView.AddFolder />
+            <StorageBrowser.UploadView.AddFiles />
+          </View>
+        </View>
+        <StorageBrowser.UploadView.DropZone>
+          <View className="amplify-storage-browser__data-table">
+            <StorageBrowser.UploadView.TasksTable />
+          </View>
+        </StorageBrowser.UploadView.DropZone>
+        <View className="amplify-storage-browser__summary">
+          <StorageBrowser.UploadView.Destination />
+          <StorageBrowser.UploadView.Statuses />
+        </View>
+        <View className="amplify-storage-browser__footer">
+          <View className="amplify-storage-browser__message">
+            <StorageBrowser.UploadView.Message />
+          </View>
+          <View className="amplify-storage-browser__buttons">
+            <StorageBrowser.UploadView.Cancel />
+            <StorageBrowser.UploadView.Start />
+          </View>
+        </View>
+      </StorageBrowser.UploadView.Provider>
+    </View>
+  );
+}
+
+function TrackedCopyView() {
+  const state = useView('Copy');
+  useTrackApplicationProcessing(state.isProcessing);
+
+  return (
+    <View className="amplify-storage-browser">
+      <StorageBrowser.CopyView.Provider {...state}>
+        <StorageBrowser.CopyView.Exit />
+        <StorageBrowser.CopyView.Title />
+        <View className="amplify-storage-browser__data-table">
+          <StorageBrowser.CopyView.TasksTable />
+        </View>
+        {state.isProcessing || state.isProcessingComplete ? null : (
+          <>
+            <View className="amplify-storage-browser__controls">
+              <View className="amplify-storage-browser__search">
+                <StorageBrowser.CopyView.FoldersSearch />
+              </View>
+              <StorageBrowser.CopyView.FoldersPagination />
+            </View>
+            <View className="amplify-storage-browser__data-table">
+              <StorageBrowser.CopyView.FoldersLoadingIndicator />
+              <StorageBrowser.CopyView.FoldersTable />
+              <StorageBrowser.CopyView.FoldersMessage />
+            </View>
+          </>
+        )}
+        <View className="amplify-storage-browser__summary">
+          <StorageBrowser.CopyView.Destination />
+          <StorageBrowser.CopyView.Statuses />
+        </View>
+        <View className="amplify-storage-browser__footer">
+          <StorageBrowser.CopyView.Message />
+          <View className="amplify-storage-browser__buttons">
+            <StorageBrowser.CopyView.Cancel />
+            <StorageBrowser.CopyView.Start />
+          </View>
+        </View>
+      </StorageBrowser.CopyView.Provider>
+    </View>
+  );
+}
+
+function TrackedDeleteView() {
+  const state = useView('Delete');
+  useTrackApplicationProcessing(state.isProcessing);
+
+  return (
+    <View className="amplify-storage-browser">
+      <StorageBrowser.DeleteView.Provider {...state}>
+        <StorageBrowser.DeleteView.Exit />
+        <StorageBrowser.DeleteView.Title />
+        <View className="amplify-storage-browser__data-table">
+          <StorageBrowser.DeleteView.TasksTable />
+        </View>
+        <View className="amplify-storage-browser__summary">
+          <StorageBrowser.DeleteView.Statuses />
+        </View>
+        <View className="amplify-storage-browser__footer">
+          <View className="amplify-storage-browser__message">
+            <StorageBrowser.DeleteView.Message />
+          </View>
+          <View className="amplify-storage-browser__buttons">
+            <StorageBrowser.DeleteView.Cancel />
+            <StorageBrowser.DeleteView.Start />
+          </View>
+        </View>
+      </StorageBrowser.DeleteView.Provider>
+    </View>
+  );
+}
+
+function TrackedCreateFolderView() {
+  const state = useView('CreateFolder');
+  useTrackApplicationProcessing(state.isProcessing);
+
+  return (
+    <View className="amplify-storage-browser">
+      <StorageBrowser.CreateFolderView.Provider {...state}>
+        <StorageBrowser.CreateFolderView.Exit />
+        <StorageBrowser.CreateFolderView.Title />
+        <StorageBrowser.CreateFolderView.NameField />
+        <View className="amplify-storage-browser__footer">
+          <View className="amplify-storage-browser__message">
+            <StorageBrowser.CreateFolderView.Message />
+          </View>
+          <View className="amplify-storage-browser__buttons">
+            <StorageBrowser.CreateFolderView.Start />
+          </View>
+        </View>
+      </StorageBrowser.CreateFolderView.Provider>
+    </View>
   );
 }
 
@@ -102,6 +280,7 @@ const authenticatorComponents = {
 function KnowledgeSyncButton() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<KnowledgeSyncStatus>(null);
+  const { beginOperation } = useSessionActivity();
 
   const handleKnowledgeSync = async () => {
     if (!syncKnowledgeEndpoint) {
@@ -115,6 +294,7 @@ function KnowledgeSyncButton() {
 
     setIsSyncing(true);
     setSyncStatus({ type: 'info', message: 'Solicitando sincronización de conocimiento...' });
+    const finishOperation = beginOperation();
 
     try {
       const session = await fetchAuthSession();
@@ -133,9 +313,11 @@ function KnowledgeSyncButton() {
         body: JSON.stringify({ action: 'syncKnowledgeBase' }),
       });
 
-      void syncRequest.catch((error) => {
-        console.warn('No se pudo leer la respuesta de sincronización.', error);
-      });
+      void syncRequest
+        .catch((error) => {
+          console.warn('No se pudo leer la respuesta de sincronización.', error);
+        })
+        .finally(finishOperation);
 
       setSyncStatus({
         type: 'success',
@@ -144,6 +326,7 @@ function KnowledgeSyncButton() {
 
       window.setTimeout(() => setIsSyncing(false), syncKnowledgeButtonCooldownMs);
     } catch (error) {
+      finishOperation();
       setSyncStatus({
         type: 'error',
         message:
@@ -194,16 +377,7 @@ const storageBrowserDisplayTextBase: StorageBrowserDisplayText = {
     tableColumnFolderHeader: 'Carpeta',
     tableColumnPermissionsHeader: 'Permisos',
     tableColumnActionsHeader: 'Acciones',
-    getPermissionName: (permissions) => {
-      const canRead = permissions.includes('get') || permissions.includes('list');
-      const canWrite = permissions.includes('write') || permissions.includes('delete');
-
-      if (canRead && canWrite) return 'Lectura/Escritura';
-      if (canRead) return 'Lectura';
-      if (canWrite) return 'Escritura';
-
-      return permissions.join('/');
-    },
+    getPermissionName: (permissions) => getPermissionDisplayName(permissions),
     getDownloadLabel: (fileName) => `Descargar ${fileName}`,
     getListLocationsResultMessage: (data) => {
       const { isLoading, items, hasExhaustedSearch, hasError = false, message } = data ?? {};
@@ -390,8 +564,15 @@ const storageBrowserDisplayTextBase: StorageBrowserDisplayText = {
   },
 };
 
-const createStorageBrowserDisplayText = (userLabel: string): StorageBrowserDisplayText => ({
+const createStorageBrowserDisplayText = (
+  userLabel: string,
+  isUploader: boolean
+): StorageBrowserDisplayText => ({
   ...storageBrowserDisplayTextBase,
+  LocationsView: {
+    ...storageBrowserDisplayTextBase.LocationsView,
+    getPermissionName: (permissions) => getPermissionDisplayName(permissions, isUploader),
+  },
   LocationDetailView: {
     ...storageBrowserDisplayTextBase.LocationDetailView,
     getTitle: ({ current, key }) =>
@@ -434,16 +615,78 @@ function useUserDisplayName() {
 }
 
 type AuthenticatedContentProps = {
+  onAuthenticated: () => void;
+  onSessionExpired: () => void;
   signOut?: () => void;
   username?: string;
 };
 
-function AuthenticatedContent({ signOut, username }: AuthenticatedContentProps) {
+type UserAccessState =
+  | { status: 'loading' }
+  | { access: UserAccess; status: 'ready' }
+  | { message: string; status: 'error' };
+
+function useAuthenticatedUserAccess() {
+  const [state, setState] = useState<UserAccessState>({ status: 'loading' });
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    void fetchAuthSession()
+      .then((session) => {
+        const payload = session.tokens?.accessToken?.payload;
+        if (!payload) {
+          throw new Error('No se pudo leer el token de acceso de la sesión.');
+        }
+
+        const access = resolveUserAccess(payload as Record<string, unknown>);
+        if (isCurrent) setState({ access, status: 'ready' });
+      })
+      .catch((error) => {
+        if (isCurrent) {
+          setState({
+            message:
+              error instanceof Error
+                ? error.message
+                : 'No se pudieron verificar los permisos de la sesión.',
+            status: 'error',
+          });
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
+  return state;
+}
+
+function ApplicationShell({
+  access,
+  signOut,
+  username,
+}: Pick<AuthenticatedContentProps, 'signOut' | 'username'> & { access: UserAccess }) {
   const userLabel = useUserDisplayName();
+  const { clearSharedState } = useSessionActivity();
   const storageBrowserDisplayText = useMemo(
-    () => createStorageBrowserDisplayText(userLabel),
-    [userLabel]
+    () => createStorageBrowserDisplayText(userLabel, access.isUploader),
+    [access.isUploader, userLabel]
   );
+  const storageBrowserViews = useMemo(
+    () => ({
+      CopyView: TrackedCopyView,
+      CreateFolderView: TrackedCreateFolderView,
+      DeleteView: TrackedDeleteView,
+      LocationDetailView: AllItemsLocationDetailView,
+      UploadView: TrackedUploadView,
+    }),
+    []
+  );
+  const handleSignOut = () => {
+    clearSharedState();
+    signOut?.();
+  };
 
   return (
     <main className="app-shell">
@@ -456,7 +699,7 @@ function AuthenticatedContent({ signOut, username }: AuthenticatedContentProps) 
             <span className="eyebrow">Sesión activa</span>
             <strong>{username ?? USER_FALLBACK_LABEL}</strong>
           </div>
-          <Button className="sign-out-button" variation="primary" onClick={signOut}>
+          <Button className="sign-out-button" variation="primary" onClick={handleSignOut}>
             Cerrar sesión
           </Button>
         </div>
@@ -474,22 +717,85 @@ function AuthenticatedContent({ signOut, username }: AuthenticatedContentProps) 
 
       <section className="storage-card" aria-label="Explorador de almacenamiento">
         <KnowledgeSyncButton />
-        <StoragePresentationProvider bucketLabels={bucketLabels} userLabel={userLabel}>
-          <StorageBrowser
-            displayText={storageBrowserDisplayText}
-            views={{ LocationDetailView: AllItemsLocationDetailView }}
-          />
+        <StoragePresentationProvider
+          bucketLabels={bucketLabels}
+          isUploader={access.isUploader}
+          userLabel={userLabel}
+        >
+          <StorageBrowser displayText={storageBrowserDisplayText} views={storageBrowserViews} />
         </StoragePresentationProvider>
       </section>
     </main>
   );
 }
 
-function App() {
+function AuthenticatedContent({
+  onAuthenticated,
+  onSessionExpired,
+  signOut,
+  username,
+}: AuthenticatedContentProps) {
+  const accessState = useAuthenticatedUserAccess();
+
+  useEffect(() => {
+    onAuthenticated();
+  }, [onAuthenticated]);
+
+  if (accessState.status === 'loading') {
+    return (
+      <div className="session-check" role="status">
+        Verificando permisos de la sesión...
+      </div>
+    );
+  }
+
+  if (accessState.status === 'error') {
+    return (
+      <div className="session-check session-check--error" role="alert">
+        <p>{accessState.message}</p>
+        <Button variation="primary" onClick={signOut}>
+          Volver a iniciar sesión
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <Authenticator components={authenticatorComponents} hideSignUp>
-      {({ signOut, user }) => <AuthenticatedContent signOut={signOut} username={user?.username} />}
-    </Authenticator>
+    <SessionActivityProvider
+      onExpire={onSessionExpired}
+      sessionId={accessState.access.sessionId}
+      userId={accessState.access.userId}
+    >
+      <ApplicationShell access={accessState.access} signOut={signOut} username={username} />
+    </SessionActivityProvider>
+  );
+}
+
+function App() {
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const clearSessionExpiredMessage = useCallback(() => setSessionExpired(false), []);
+
+  return (
+    <>
+      {sessionExpired ? (
+        <div className="idle-session-message" role="alert">
+          La sesión terminó después de 60 minutos de inactividad. Inicia sesión nuevamente.
+        </div>
+      ) : null}
+      <Authenticator components={authenticatorComponents} hideSignUp>
+        {({ signOut, user }) => (
+          <AuthenticatedContent
+            onAuthenticated={clearSessionExpiredMessage}
+            onSessionExpired={() => {
+              setSessionExpired(true);
+              signOut?.();
+            }}
+            signOut={signOut}
+            username={user?.username}
+          />
+        )}
+      </Authenticator>
+    </>
   );
 }
 
