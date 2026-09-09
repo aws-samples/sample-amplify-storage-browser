@@ -1,5 +1,5 @@
 import { defineBackend } from '@aws-amplify/backend';
-import { Aspects, IAspect } from 'aws-cdk-lib';
+import { Aspects, CfnCondition, Fn, IAspect, Stack } from 'aws-cdk-lib';
 import {
   AwsCustomResource,
   AwsCustomResourcePolicy,
@@ -39,7 +39,8 @@ class GeneratedNodeRuntime implements IAspect {
 Aspects.of(backend.stack).add(new GeneratedNodeRuntime());
 
 const expedientesBucket = backend.secondaryStorage.resources.bucket;
-const expedientesKmsKeyArn = 'arn:aws:kms:us-east-1:953290282809:key/e0b3229c-c603-4e8f-9157-8abbed28943f';
+const expedientesKmsKeyArn =
+  'arn:aws:kms:us-east-1:953290282809:key/e0b3229c-c603-4e8f-9157-8abbed28943f';
 const expedientesCfnBucket = expedientesBucket.node.defaultChild as CfnBucket;
 
 expedientesCfnBucket.bucketEncryption = {
@@ -54,13 +55,76 @@ expedientesCfnBucket.bucketEncryption = {
 };
 
 const expedientesAccessStack = backend.createStack('expedientesAccess');
+const primaryBucket = backend.storage.resources.bucket;
 const expedientesKmsKey = Key.fromKeyArn(
   expedientesAccessStack,
   'ExpedientesKmsKey',
   expedientesKmsKeyArn
 );
 const gexpedientesGroupName = 'gexpedientes';
+const uploadersGroupName = 'uploaders';
 const privateIdentityPrefix = 'privado/${cognito-identity.amazonaws.com:sub}';
+const uploadersGroup = backend.auth.resources.groups[uploadersGroupName];
+
+if (!uploadersGroup) {
+  throw new Error('Amplify did not generate the expected uploaders group resources.');
+}
+
+// `uploaders` already exists in the deployed User Pool. Keep Amplify's generated
+// IAM role and client outputs, but make only the CfnUserPoolGroup resource a
+// no-op so CloudFormation never attempts to recreate the existing group.
+const skipExistingUploadersGroup = new CfnCondition(
+  Stack.of(uploadersGroup.cfnUserGroup),
+  'SkipExistingUploadersGroupCreation',
+  { expression: Fn.conditionEquals('existing', 'create') }
+);
+uploadersGroup.cfnUserGroup.cfnOptions.condition = skipExistingUploadersGroup;
+
+const linkUploadersGroupRoleCall = {
+  service: 'cognito-identity-provider',
+  action: 'UpdateGroup',
+  parameters: {
+    GroupName: uploadersGroupName,
+    UserPoolId: backend.auth.resources.userPool.userPoolId,
+    RoleArn: uploadersGroup.role.roleArn,
+    Precedence: 0,
+  },
+  physicalResourceId: PhysicalResourceId.of('uploaders-group-role-link'),
+};
+
+new AwsCustomResource(expedientesAccessStack, 'LinkUploadersGroupRole', {
+  onCreate: linkUploadersGroupRoleCall,
+  onUpdate: linkUploadersGroupRoleCall,
+  installLatestAwsSdk: false,
+  policy: AwsCustomResourcePolicy.fromStatements([
+    new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: ['cognito-idp:UpdateGroup'],
+      resources: [backend.auth.resources.userPool.userPoolArn],
+    }),
+    new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: ['iam:PassRole'],
+      resources: [uploadersGroup.role.roleArn],
+    }),
+  ]),
+});
+
+new Policy(expedientesAccessStack, 'UploadersObjectReadDeleteDeny', {
+  roles: [uploadersGroup.role],
+  statements: [
+    new PolicyStatement({
+      effect: Effect.DENY,
+      actions: ['s3:GetObject', 's3:GetObjectVersion', 's3:DeleteObject', 's3:DeleteObjectVersion'],
+      resources: [
+        `${primaryBucket.bucketArn}/doctrina/*`,
+        `${primaryBucket.bucketArn}/medios/*`,
+        `${primaryBucket.bucketArn}/jurisprudencia/*`,
+        `${primaryBucket.bucketArn}/legislacion/*`,
+      ],
+    }),
+  ],
+});
 
 // Storage group rules replace {entity_id} with a wildcard. Keep the owner-scoped
 // storage output and enforce the gexpedientes gate from a separate stack. The
@@ -90,7 +154,7 @@ const linkGExpedientesGroupRoleCall = {
     GroupName: gexpedientesGroupName,
     UserPoolId: backend.auth.resources.userPool.userPoolId,
     RoleArn: gexpedientesRole.roleArn,
-    Precedence: 2,
+    Precedence: 3,
   },
   physicalResourceId: PhysicalResourceId.of('gexpedientes-group-role-link'),
 };

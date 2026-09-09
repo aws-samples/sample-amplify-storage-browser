@@ -8,5 +8,7 @@ export const auth = defineAuth({
   loginWith: {
     email: true,
   },
-  groups: ['admin', 'eliminadores'],
+  // Array order defines Cognito group precedence. `uploaders` must win for
+  // users that also belong to a more privileged group.
+  groups: ['uploaders', 'admin', 'eliminadores'],
 });

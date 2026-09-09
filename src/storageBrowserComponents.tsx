@@ -18,9 +18,11 @@ import {
   USER_FALLBACK_LABEL,
   type BucketLabelMap,
 } from './storageBrowserPresentation';
+import { filterStorageActionsForUploader } from './storageBrowserActions';
 
 type PresentationContextValue = {
   bucketLabels: BucketLabelMap;
+  isUploader: boolean;
   userLabel: string;
 };
 
@@ -28,18 +30,39 @@ const EMPTY_BUCKET_LABELS = new Map<string, string>();
 
 const StoragePresentationContext = React.createContext<PresentationContextValue>({
   bucketLabels: EMPTY_BUCKET_LABELS,
+  isUploader: false,
   userLabel: USER_FALLBACK_LABEL,
 });
 
 export function StoragePresentationProvider({
   bucketLabels,
   children,
+  isUploader = false,
   userLabel,
-}: PresentationContextValue & { children: ReactNode }) {
+}: Omit<PresentationContextValue, 'isUploader'> & {
+  children: ReactNode;
+  isUploader?: boolean;
+}) {
   return (
-    <StoragePresentationContext.Provider value={{ bucketLabels, userLabel }}>
+    <StoragePresentationContext.Provider value={{ bucketLabels, isUploader, userLabel }}>
       {children}
     </StoragePresentationContext.Provider>
+  );
+}
+
+const DefaultActionsList = componentsDefault.ActionsList;
+type ActionsListProps = ComponentProps<NonNullable<typeof DefaultActionsList>>;
+
+export function StorageActionsList(props: ActionsListProps) {
+  const { isUploader } = React.useContext(StoragePresentationContext);
+
+  if (!DefaultActionsList) return null;
+
+  return (
+    <DefaultActionsList
+      {...props}
+      items={filterStorageActionsForUploader(props.items, isUploader)}
+    />
   );
 }
 
@@ -360,7 +383,7 @@ const withCellLabel = (cell: DataTableCell, label: string): DataTableCell => {
 };
 
 export function StorageDataTable({ headers, isLoading, rows }: DataTableProps) {
-  const { bucketLabels, userLabel } = React.useContext(StoragePresentationContext);
+  const { bucketLabels, isUploader, userLabel } = React.useContext(StoragePresentationContext);
   const bucketColumnIndex = headers.findIndex(({ key }) => key === 'bucket');
   const folderColumnIndex = headers.findIndex(({ key }) => key === 'folder');
   const isLocationsTable =
@@ -369,7 +392,26 @@ export function StorageDataTable({ headers, isLoading, rows }: DataTableProps) {
     headers.some(({ key }) => key === 'permission');
 
   if (!isLocationsTable) {
-    return <CompatibleStorageDataTable headers={headers} isLoading={isLoading} rows={rows} />;
+    const hiddenColumnIndexes = new Set(
+      isUploader
+        ? headers
+            .map(({ key }, index) => (key === 'checkbox' || key === 'download' ? index : -1))
+            .filter((index) => index >= 0)
+        : []
+    );
+    const displayHeaders = headers.filter((_, index) => !hiddenColumnIndexes.has(index));
+    const displayRows = rows.map((row) => ({
+      ...row,
+      content: row.content.filter((_, index) => !hiddenColumnIndexes.has(index)),
+    }));
+
+    return (
+      <CompatibleStorageDataTable
+        headers={displayHeaders}
+        isLoading={isLoading}
+        rows={displayRows}
+      />
+    );
   }
 
   const displayHeaders = headers.filter((_, index) => index !== bucketColumnIndex);

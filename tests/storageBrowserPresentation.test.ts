@@ -10,6 +10,7 @@ import {
   formatPrivatePath,
   getBucketDisplayName,
   getNavigationCallbacks,
+  getPermissionDisplayName,
   NEUTRAL_STORAGE_LABEL,
   resolveUserDisplayName,
   S3_LIST_PAGE_SIZE,
@@ -71,6 +72,13 @@ test('convierte la carpeta privada a nombre, correo o Usuario', () => {
   assert.equal(formatPrivatePath(privatePath, 'ana@example.com'), 'ana@example.com/expediente');
   assert.equal(formatPrivatePath(privatePath, USER_FALLBACK_LABEL), 'Usuario/expediente');
   assert.equal(formatPrivatePath(`privado-similar/${IDENTITY_ID}`, 'Ana Pérez'), undefined);
+});
+
+test('muestra Listar/Subir solo para el perfil uploader', () => {
+  assert.equal(getPermissionDisplayName(['list', 'write'], true), 'Listar/Subir');
+  assert.equal(getPermissionDisplayName(['list', 'write']), 'Lectura/Escritura');
+  assert.equal(getPermissionDisplayName(['get', 'list']), 'Lectura');
+  assert.equal(getPermissionDisplayName(['delete']), 'Escritura');
 });
 
 test('forma rutas normales, privadas y anidadas sin datos físicos', () => {
