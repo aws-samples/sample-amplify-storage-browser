@@ -281,9 +281,63 @@ body::before {
   background: #f4f6f9;
 }
 
-.storage-card [data-testid='LOCATIONS_VIEW'] :is(.amplify-storage-browser__table, .storage-browser__table)
-  :is(th, td):nth-child(2) {
-  display: none;
+.storage-navigation {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  min-width: 0;
+  margin-bottom: 0.75rem;
+}
+
+.storage-navigation__actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.45rem;
+}
+
+.storage-navigation__button {
+  display: inline-grid;
+  width: 2.65rem;
+  height: 2.65rem;
+  padding: 0;
+  color: var(--frauden-navy);
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid rgba(16, 25, 54, 0.2);
+  border-radius: 0.8rem;
+  box-shadow: 0 6px 18px rgba(16, 25, 54, 0.08);
+  place-items: center;
+}
+
+.storage-navigation__button:hover:not(:disabled) {
+  color: #fff;
+  background: var(--frauden-navy);
+  border-color: var(--frauden-navy);
+}
+
+.storage-navigation__button:focus-visible {
+  outline: 3px solid rgba(83, 99, 155, 0.4);
+  outline-offset: 2px;
+}
+
+.storage-navigation__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.storage-navigation__button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.storage-navigation__breadcrumbs {
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .amplify-authenticator {
@@ -326,6 +380,14 @@ body::before {
   .user-card {
     flex: 1;
     text-align: left;
+  }
+
+  .storage-navigation {
+    align-items: flex-start;
+  }
+
+  .storage-navigation__breadcrumbs {
+    padding-top: 0.35rem;
   }
 }
 

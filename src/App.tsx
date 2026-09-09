@@ -6,22 +6,74 @@ import {
 import '@aws-amplify/ui-react/styles.css';
 import '@aws-amplify/ui-react-storage/styles.css';
 import './App.css';
-import { useState } from 'react';
+import { useEffect, useMemo, useState, type ComponentProps } from 'react';
 import config from '../amplify_outputs.json';
 import { Amplify } from 'aws-amplify';
-import { fetchAuthSession } from 'aws-amplify/auth';
+import { fetchAuthSession, fetchUserAttributes } from 'aws-amplify/auth';
 import { I18n } from 'aws-amplify/utils';
 import { Authenticator, Button, translations } from '@aws-amplify/ui-react';
 import fraudenLogo from './assets/frauden-logo.svg';
+import { listLocationItemsPage } from './listLocationItemsPage';
+import {
+  StorageActionDestination,
+  StorageDataTable,
+  StorageNavigation,
+  StoragePagination,
+  StoragePresentationProvider,
+} from './storageBrowserComponents';
+import {
+  createBucketLabelMap,
+  createListAllLocationItemsHandler,
+  formatLocationTitle,
+  resolveUserDisplayName,
+  USER_FALLBACK_LABEL,
+  type AmplifyBucketConfig,
+} from './storageBrowserPresentation';
 
 Amplify.configure(config);
 I18n.putVocabularies(translations);
 I18n.setLanguage('es');
 
+const bucketLabels = createBucketLabelMap(
+  Amplify.getConfig().Storage?.S3?.buckets as AmplifyBucketConfig | undefined
+);
+
 const { StorageBrowser } = createStorageBrowser({
   config: createAmplifyAuthAdapter(),
-  components: componentsDefault,
+  actions: {
+    default: {
+      listLocationItems: createListAllLocationItemsHandler(listLocationItemsPage),
+    },
+  },
+  components: {
+    ...componentsDefault,
+    ActionDestination: StorageActionDestination,
+    DataTable: StorageDataTable,
+    Navigation: StorageNavigation,
+    Pagination: StoragePagination,
+  },
 });
+
+type LocationDetailViewProps = ComponentProps<typeof StorageBrowser.LocationDetailView>;
+type LocationDetailViewWithInitialValuesProps = LocationDetailViewProps & {
+  initialValues?: {
+    delimiter?: string;
+    pageSize?: number;
+  };
+};
+
+const LocationDetailViewWithInitialValues = StorageBrowser.LocationDetailView as unknown as (
+  props: LocationDetailViewWithInitialValuesProps
+) => ReturnType<typeof StorageBrowser.LocationDetailView>;
+
+function AllItemsLocationDetailView(props: LocationDetailViewProps) {
+  return (
+    <LocationDetailViewWithInitialValues
+      {...props}
+      initialValues={{ pageSize: Number.MAX_SAFE_INTEGER }}
+    />
+  );
+}
 
 type StorageBrowserDisplayText = NonNullable<Parameters<typeof StorageBrowser>[0]['displayText']>;
 
@@ -131,7 +183,7 @@ function KnowledgeSyncButton() {
   );
 }
 
-const storageBrowserDisplayText: StorageBrowserDisplayText = {
+const storageBrowserDisplayTextBase: StorageBrowserDisplayText = {
   LocationsView: {
     title: 'Inicio',
     searchPlaceholder: 'Filtrar carpetas y archivos',
@@ -188,7 +240,7 @@ const storageBrowserDisplayText: StorageBrowserDisplayText = {
     tableColumnNameHeader: 'Nombre',
     tableColumnSizeHeader: 'Tamaño',
     tableColumnTypeHeader: 'Tipo',
-    getTitle: ({ current, key }) => key || current?.bucket || '',
+    getTitle: () => '',
     getActionListItemLabel: (key = '') => {
       const labels: Record<string, string> = {
         Copy: 'Copiar',
@@ -338,43 +390,105 @@ const storageBrowserDisplayText: StorageBrowserDisplayText = {
   },
 };
 
+const createStorageBrowserDisplayText = (userLabel: string): StorageBrowserDisplayText => ({
+  ...storageBrowserDisplayTextBase,
+  LocationDetailView: {
+    ...storageBrowserDisplayTextBase.LocationDetailView,
+    getTitle: ({ current, key }) =>
+      formatLocationTitle(
+        {
+          bucket: current?.bucket,
+          key,
+          prefix: current?.prefix,
+        },
+        bucketLabels,
+        userLabel
+      ),
+  },
+});
+
+function useUserDisplayName() {
+  const [userLabel, setUserLabel] = useState(USER_FALLBACK_LABEL);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    void fetchUserAttributes()
+      .then((attributes) => {
+        if (isCurrent) {
+          setUserLabel(resolveUserDisplayName(attributes));
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setUserLabel(USER_FALLBACK_LABEL);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
+  return userLabel;
+}
+
+type AuthenticatedContentProps = {
+  signOut?: () => void;
+  username?: string;
+};
+
+function AuthenticatedContent({ signOut, username }: AuthenticatedContentProps) {
+  const userLabel = useUserDisplayName();
+  const storageBrowserDisplayText = useMemo(
+    () => createStorageBrowserDisplayText(userLabel),
+    [userLabel]
+  );
+
+  return (
+    <main className="app-shell">
+      <header className="site-header">
+        <a className="brand" href="/" aria-label="Frauden - Inicio">
+          <img className="brand-logo" src={fraudenLogo} alt="Frauden" />
+        </a>
+        <div className="header-actions">
+          <div className="user-card" aria-label="Usuario conectado">
+            <span className="eyebrow">Sesión activa</span>
+            <strong>{username ?? USER_FALLBACK_LABEL}</strong>
+          </div>
+          <Button className="sign-out-button" variation="primary" onClick={signOut}>
+            Cerrar sesión
+          </Button>
+        </div>
+      </header>
+
+      <section className="hero-card" aria-labelledby="storage-title">
+        <div>
+          <span className="eyebrow">Panel seguro</span>
+          <h1 id="storage-title">Gestor documental de Frauden</h1>
+          <p>
+            carga archivos y organiza de forma segura y sencilla el archivo documental de Frauden.
+          </p>
+        </div>
+      </section>
+
+      <section className="storage-card" aria-label="Explorador de almacenamiento">
+        <KnowledgeSyncButton />
+        <StoragePresentationProvider bucketLabels={bucketLabels} userLabel={userLabel}>
+          <StorageBrowser
+            displayText={storageBrowserDisplayText}
+            views={{ LocationDetailView: AllItemsLocationDetailView }}
+          />
+        </StoragePresentationProvider>
+      </section>
+    </main>
+  );
+}
+
 function App() {
   return (
     <Authenticator components={authenticatorComponents} hideSignUp>
-      {({ signOut, user }) => (
-        <main className="app-shell">
-          <header className="site-header">
-            <a className="brand" href="/" aria-label="Frauden - Inicio">
-              <img className="brand-logo" src={fraudenLogo} alt="Frauden" />
-            </a>
-            <div className="header-actions">
-              <div className="user-card" aria-label="Usuario conectado">
-                <span className="eyebrow">Sesión activa</span>
-                <strong>{user?.username ?? 'Usuario'}</strong>
-              </div>
-              <Button className="sign-out-button" variation="primary" onClick={signOut}>
-                Cerrar sesión
-              </Button>
-            </div>
-          </header>
-
-          <section className="hero-card" aria-labelledby="storage-title">
-            <div>
-              <span className="eyebrow">Panel seguro</span>
-              <h1 id="storage-title">Gestor documental de Frauden</h1>
-              <p>
-                carga archivos y organiza de forma segura y sencilla el archivo documental de
-                Frauden.
-              </p>
-            </div>
-          </section>
-
-          <section className="storage-card" aria-label="Explorador de almacenamiento">
-            <KnowledgeSyncButton />
-            <StorageBrowser displayText={storageBrowserDisplayText} />
-          </section>
-        </main>
-      )}
+      {({ signOut, user }) => <AuthenticatedContent signOut={signOut} username={user?.username} />}
     </Authenticator>
   );
 }
